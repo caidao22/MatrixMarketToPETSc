@@ -4,17 +4,24 @@ import fnmatch
 import os
 import sys
 
-processed = 'output'
 f = open("petscoptions.txt", "a")
 
 if(len(sys.argv)!=2):
   print 'Usage : python '+sys.argv[0]+' pathToMatrixFiles'
   exit(1)
 
+# processed = 'output'
+# processedMatList = []
+# for root, dirnames, filenames in os.walk(processed):
+#   for dirname in dirnames:
+#     processedMatList.append(dirname)
+
 processedMatList = []
-for root, dirnames, filenames in os.walk(processed):
-  for dirname in dirnames:
-      processedMatList.append(dirname)
+if os.path.exists("processedMat.txt"):
+  with open("processedMat.txt") as file:
+    for line in file:
+      line = line.strip() # or some other preprocessing
+      processedMatList.append(line) #storing everything in memory!
 
 matrixFileList = []
 vectorFileList = []
@@ -31,7 +38,7 @@ for root, dirnames, filenames in os.walk(sys.argv[1].rstrip('/')):
       continue
     print 'adding A matrix '+datafile
     matrixFileList.append(os.path.join(root, filename))
-    
+
 for matrixFile in matrixFileList:
   path = matrixFile.rsplit("/",1)[0]
   datafile = matrixFile.replace("/",".")
