@@ -55,8 +55,8 @@ for root, dirnames, filenames in os.walk(sys.argv[1].rstrip('/')) : # remove tra
 
     matrixFile = os.path.join(root, filename)
     (rows,cols,_,_,field,_) = scipy.io.mminfo(matrixFile)
-    if field != 'real':
-      continue
+#    if field != 'real':
+#      continue
     dirpath = os.path.join(missing,groupName)
     if not os.path.exists(dirpath) :
       os.makedirs(dirpath)
@@ -67,7 +67,7 @@ for root, dirnames, filenames in os.walk(sys.argv[1].rstrip('/')) : # remove tra
 #        matrixFileList.append(os.path.join(root, filename))
 #        copyfile(matrixFile, dst)
         outputfile = dirpath+'/'+submatName+'_'+str(int(rows))+'x'+str(int(cols))+'.dat'
-        call([exe,'-fin',matrixFile,'-fout',outputfile])
+        call([exe,'-fin',matrixFile,'-fout',outputfile,'-aij_only', '-viewer_binary_skip_info'])
       elif cols == 1 : # b vector
         print 'converting '+matrixFile
 #        copyfile(matrixFile, dst)
