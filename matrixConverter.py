@@ -6,26 +6,27 @@ import os
 import sys
 import re
 import numpy as np
+from scipy.sparse import isspmatrix
 
-dirs = os.environ['PETSC_DIR']
-sys.path.insert(0, dirs+'/lib/petsc/bin/pythonscripts/')
-sys.path.insert(0, dirs+'/lib/petsc/bin/')
+dirnames = os.environ['PETSC_DIR']
+sys.path.insert(0, dirnames+'/lib/petsc/bin/pythonscripts/')
+sys.path.insert(0, dirnames+'/lib/petsc/bin/')
 
 import PetscBinaryIO
 
-converted = 'converted_clean'
-
+#converted = 'converted_clean'
+converted = 'gpu_converted_clean'
 def grep(path, regex) :
   regObj = re.compile(regex)
   res = []
-  for root, dirs, fnames in os.walk(path) :
-    for fname in fnames :
-      if regObj.match(fname) :
-        res.append(os.path.join(root, fname))
+  for root, dirnames, filenames in os.walk(path) :
+    for filename in filenames :
+      if regObj.match(filename) :
+        res.append(os.path.join(root, filename))
   return res
 
 if (len(sys.argv)!=2) :
-  print 'Usage : python '+sys.argv[0]+' pathToMatrixFiles'
+  print('Usage : python '+sys.argv[0]+' pathToMatrixFiles')
   exit(1)
 
 convertedFileList = []
@@ -36,45 +37,64 @@ for root, dirnames, filenames in os.walk(converted) :
 matrixFileList = []
 for root, dirnames, filenames in os.walk(sys.argv[1].rstrip('/')) : # remove trailing slash
   for filename in fnmatch.filter(filenames, '*.mtx') :
-    datafile = os.path.splitext(filename)[0]
-    if datafile in convertedFileList :
-      print('skipping '+filename+' because it already exists')
-      continue
-    print(root)
-    print(datafile)
-    print(root.split("/")[-1])
-    print(root.split("/")[-1]+'_b')
-    if datafile == root.split("/")[-1] or datafile == root.split("/")[-1]+'_b' : # adding only A matrix and b vector
-      print 'adding '+filename
-      matrixFileList.append(os.path.join(root, filename))
+    matrixFile = os.path.join(root, filename)
+    matName = matrixFile.replace("/",".")
+    groupName = matName.split(".")[-4]
+    matName= matName.split(".")[-2]
 
+    isconverted = False
+    for existingfile in convertedFileList :
+      if existingfile.startswith(groupName+'_'+matName) :
+        isconverted = True
+        break
+    if isconverted:
+        print('skipping '+matrixFile+' because it has already been converted')
+        continue
+    filenameNoExt = os.path.splitext(filename)[0]
+    # adding only one A matrix and b vector from the folder and ignore all the others
+    if filenameNoExt == root.split("/")[-1] or filenameNoExt == root.split("/")[-1]+'_b' :
+      print('adding '+matrixFile)
+      matrixFileList.append(matrixFile)
+    else :
+      print('skipping '+matrixFile+' because the file name <'+filenameNoExt+'> does not match <'+root.split("/")[-1]+'> or <'+root.split("/")[-1]+'_b>')
+
+print('Matrices to convert: ')
 for matrix in matrixFileList :
-  print 'Matrix to convert '+matrix
+  size = os.path.getsize(matrix)
+  print(matrix+' '+str(size)+' bytes')
 
 if not os.path.exists(converted) :
-  os.makedirs(converted)
+  os.makedirnames(converted)
 
 for matrixFile in matrixFileList :
   matName = matrixFile.replace("/",".")
+  groupName = matName.split(".")[-4]
   matName= matName.split(".")[-2]
-  size = os.path.getsize(matrixFile)
-  if (size>1073741824) :
-    print(matrixFile+' is too large: ')
-    continue
-  A = scipy.io.mmread(matrixFile)
+  (rows,cols,_,_,field,_) = scipy.io.mminfo(matrixFile)
+
+  # select only real-valued matrices, if one chooses 'real' using the online selection tool, both real and pattern will be included.
+  if field != 'real' :
+     continue
+
   try :
-    if A.shape[1]!=1 and matName.split("_")[-1] != 'b': # A matrix
-      outputfile = converted+'/'+matName+'_'+str(A.shape[0])+'x'+str(A.shape[1])+'.dat'
-      print 'Outputing : '+outputfile
+    if cols!=1 and matName.split("_")[-1] != 'b' : # finding A matrix
+      outputfile = converted+'/'+groupName+'_'+matName+'_'+str(rows)+'x'+str(cols)+'.dat'
+      print('Outputing : '+outputfile)
       mfile = open(outputfile,'w')
+      A = scipy.io.mmread(matrixFile)
       PetscBinaryIO.PetscBinaryIO().writeMatSciPy(mfile, A)
-    elif A.shape[1] == 1: # b vector
-      outputfile = converted+'/'+matName+'_'+str(A.shape[0])+'.dat'
-      print 'Outputing : '+outputfile
+    elif cols == 1: # b vector
+      outputfile = converted+'/'+groupName+'_'+matName+'_'+str(rows)+'.dat'
+      print('Outputing : '+outputfile)
       mfile = open(outputfile,'w')
-      PetscBinaryIO.PetscBinaryIO().writeVec(mfile, A.toarray()) # sometimes A is in sparse format, thus needs to be converted 
-  except Exception, e :
-    print 'Error Creating file '+outputfile
+      A = scipy.io.mmread(matrixFile)
+      if isspmatrix(A) :# sometimes A is in sparse format, thus needs to be converted
+        A = A.toarray()
+      PetscBinaryIO.PetscBinaryIO().writeVec(mfile, A)
+    else:
+      print('Skipping : '+outputfile+' because b is a matrix')
+  except Exception as e:
+    print('Error Creating file '+outputfile)
     if os.path.isfile(outputfile) :
       os.remove(outputfile)
-      print 'File has been removed'
+      print('File has been removed')
