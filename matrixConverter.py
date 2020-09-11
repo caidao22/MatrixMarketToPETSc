@@ -92,6 +92,7 @@ for matrixFile in matrixFileList :
         A = A.toarray()
       PetscBinaryIO.PetscBinaryIO().writeVec(mfile, A)
     else:
+      outputfile = converted+'/'+groupName+'_'+matName+'_'+str(rows)+'x'+str(cols)+'.dat'
       print('Skipping : '+outputfile+' because b is a matrix')
   except Exception as e:
     print('Error Creating file '+outputfile)
