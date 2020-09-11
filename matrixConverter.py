@@ -74,18 +74,19 @@ for matrixFile in matrixFileList :
 
   # select only real-valued matrices, if one chooses 'real' using the online selection tool, both real and pattern will be included.
   if field != 'real' :
+     print('skipping '+matrixFile+' because the field is '+field)
      continue
 
   try :
     if cols!=1 and matName.split("_")[-1] != 'b' : # finding A matrix
       outputfile = converted+'/'+groupName+'_'+matName+'_'+str(rows)+'x'+str(cols)+'.dat'
-      print('Outputing : '+outputfile)
+      print('outputing : '+outputfile)
       mfile = open(outputfile,'w')
       A = scipy.io.mmread(matrixFile)
       PetscBinaryIO.PetscBinaryIO().writeMatSciPy(mfile, A)
     elif cols == 1: # b vector
       outputfile = converted+'/'+groupName+'_'+matName+'_'+str(rows)+'.dat'
-      print('Outputing : '+outputfile)
+      print('outputing : '+outputfile)
       mfile = open(outputfile,'w')
       A = scipy.io.mmread(matrixFile)
       if isspmatrix(A) :# sometimes A is in sparse format, thus needs to be converted
@@ -93,7 +94,7 @@ for matrixFile in matrixFileList :
       PetscBinaryIO.PetscBinaryIO().writeVec(mfile, A)
     else:
       outputfile = converted+'/'+groupName+'_'+matName+'_'+str(rows)+'x'+str(cols)+'.dat'
-      print('Skipping : '+outputfile+' because b is a matrix')
+      print('skipping : '+outputfile+' because b is a matrix')
   except Exception as e:
     print('Error Creating file '+outputfile)
     if os.path.isfile(outputfile) :
